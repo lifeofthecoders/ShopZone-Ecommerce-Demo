@@ -1,22 +1,57 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { Product } from "../types/product";
 
-type CartPageProps = {
+type Props = {
   cart: Product[];
   onRemove: (index: number) => void;
+  onQuantityChange: (
+    productId: string,
+    change: number
+  ) => void;
 };
 
-function CartPage({ cart, onRemove }: CartPageProps) {
-  const [error, setError] = useState("");
+const money = (value: number) =>
+  `₹${value.toLocaleString("en-IN")}`;
+
+export default function CartPage({
+  cart,
+  onRemove,
+  onQuantityChange,
+}: Props) {
   const navigate = useNavigate();
 
-  const total = cart.reduce((sum, item) => sum + item.price, 0);
+  const subtotal = cart.reduce(
+    (sum, item) => sum + item.price,
+    0
+  );
+
+  const grouped = cart.reduce<
+    Array<{
+      product: Product;
+      quantity: number;
+      firstIndex: number;
+    }>
+  >((items, product, index) => {
+    const existing = items.find(
+      (item) => item.product.id === product.id
+    );
+
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      items.push({
+        product,
+        quantity: 1,
+        firstIndex: index,
+      });
+    }
+
+    return items;
+  }, []);
 
   const handleCheckout = () => {
     if (cart.length === 0) {
-      setError("Your cart is empty. Please add products before checkout.");
       return;
     }
 
@@ -24,59 +59,188 @@ function CartPage({ cart, onRemove }: CartPageProps) {
   };
 
   return (
-    <main className="page-container">
-      <h1>Your Shopping Cart</h1>
+    <div className="inner-page">
+      <header className="inner-header">
+        <Link className="brand" to="/products">
+          <span className="brand-mark">▣</span>
+          <span>
+            SHOP<span className="brand-accent">ZONE</span>
+          </span>
+        </Link>
 
-      {cart.length === 0 ? (
-        <div data-testid="cart-empty-message" className="empty-cart">
-          {error || "Your cart is empty. Add some products to get started."}
-        </div>
-      ) : (
-        <div className="cart-list">
-          {cart.map((item, index) => (
-            <div
-              className="cart-item"
-              key={`${item.id}-${index}`}
-              data-testid={`cart-item-${item.id}`}
-            >
+        <Link to="/products" className="back-link">
+          ← Continue shopping
+        </Link>
+      </header>
+
+      <main className="cart-page-content">
+        <div className="page-title-row">
+          <div>
+            <span className="section-kicker">
+              YOUR SELECTION
+            </span>
+
+            <h1>
+              Your Cart
               <span>
-                {item.emoji} {item.name}
+                ({cart.length}{" "}
+                {cart.length === 1 ? "item" : "items"})
+              </span>
+            </h1>
+
+            <p>
+              Review your items before you check out.
+            </p>
+          </div>
+
+          <span className="secure-note">
+            ⌑ Secure demo checkout
+          </span>
+        </div>
+
+        {cart.length === 0 ? (
+          <div
+            className="empty-state"
+            data-testid="empty-cart-message"
+          >
+            <span>🛒</span>
+
+            <h2>Your cart is empty</h2>
+
+            <p>
+              Looks like you haven't added anything yet.
+              Discover something you love.
+            </p>
+
+            <Link
+              className="primary-cta"
+              to="/products"
+            >
+              Discover products <span>→</span>
+            </Link>
+
+            <button
+              type="button"
+              className="checkout-button empty-checkout-button"
+              data-testid="checkout-button"
+              onClick={handleCheckout}
+            >
+              Proceed to Checkout <span>→</span>
+            </button>
+          </div>
+        ) : (
+          <div className="cart-columns">
+            <section className="cart-items-panel">
+              {grouped.map(
+                ({ product, quantity, firstIndex }) => (
+                  <article
+                    className="cart-line-item"
+                    key={product.id}
+                    data-testid={`cart-item-${product.id}`}
+                  >
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                    />
+
+                    <div className="cart-line-details">
+                      <span>{product.category}</span>
+
+                      <h3>{product.name}</h3>
+
+                      <p>{product.description}</p>
+
+                      <div className="quantity-control">
+                        <button
+                          type="button"
+                          aria-label={`Decrease ${product.name} quantity`}
+                          onClick={() =>
+                            onQuantityChange(product.id, -1)
+                          }
+                        >
+                          −
+                        </button>
+
+                        <strong>{quantity}</strong>
+
+                        <button
+                          type="button"
+                          aria-label={`Increase ${product.name} quantity`}
+                          onClick={() =>
+                            onQuantityChange(product.id, 1)
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="cart-line-price">
+                      <strong>
+                        {money(product.price * quantity)}
+                      </strong>
+
+                      <button
+                        type="button"
+                        className="remove-item"
+                        aria-label={`Remove ${product.name}`}
+                        onClick={() =>
+                          onRemove(firstIndex)
+                        }
+                      >
+                        ⌫
+                      </button>
+                    </div>
+                  </article>
+                )
+              )}
+            </section>
+
+            <aside className="order-summary">
+              <span className="section-kicker">
+                SUMMARY
               </span>
 
-              <div className="cart-item-actions">
-                <strong>₹{item.price.toLocaleString("en-IN")}</strong>
+              <h2>Order Summary</h2>
 
-                <button
-                  type="button"
-                  className="remove-button"
-                  onClick={() => onRemove(index)}
-                >
-                  Remove
-                </button>
+              <div className="summary-row">
+                <span>Subtotal</span>
+                <strong>{money(subtotal)}</strong>
               </div>
-            </div>
-          ))}
 
-          <h2 className="cart-total">
-            Total: ₹{total.toLocaleString("en-IN")}
-          </h2>
-        </div>
-      )}
+              <div className="summary-row">
+                <span>Shipping</span>
+                <strong className="free-shipping">
+                  FREE
+                </strong>
+              </div>
 
-      <button
-        type="button"
-        className="primary-button"
-        data-testid="checkout-button"
-        onClick={handleCheckout}
-      >
-        Proceed to Checkout
-      </button>
+              <div className="summary-row">
+                <span>Tax</span>
+                <strong>Included</strong>
+              </div>
 
-      <p>
-        <a href="/products">← Continue Shopping</a>
-      </p>
-    </main>
+              <div className="summary-total">
+                <span>Total</span>
+                <strong>{money(subtotal)}</strong>
+              </div>
+
+              <button
+                type="button"
+                className="checkout-button"
+                data-testid="checkout-button"
+                onClick={handleCheckout}
+              >
+                Proceed to Checkout <span>→</span>
+              </button>
+
+              <p className="summary-footnote">
+                Demo checkout · No real payment will be charged.
+              </p>
+            </aside>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
-
-export default CartPage;
